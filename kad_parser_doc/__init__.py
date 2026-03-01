@@ -1,0 +1,2 @@
+"""kad-parser-doc package."""
+
