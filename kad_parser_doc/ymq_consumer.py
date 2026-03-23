@@ -100,12 +100,12 @@ class YmqConsumer:
             except Exception:
                 pass
 
-        if fetch_result.ok and fetch_result.text_base64:
+        if fetch_result.ok:
             success_payload: dict[str, Any] = {
                 "job_uuid": task.job_uuid,
                 "doc_id": task.doc_id,
                 "doc_uuid": task.doc_uuid,
-                "text_base64": fetch_result.text_base64,
+                "text_base64": fetch_result.text_base64 or "",
                 "start_ip": fetch_result.start_ip,
                 "service_id": self.cfg.service_id,
             }

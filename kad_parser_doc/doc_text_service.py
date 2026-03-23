@@ -101,7 +101,7 @@ class DocTextService:
             is_ok = bool(raw.get("ok"))
             status_code = int(raw.get("status") or 0)
             text = str(raw.get("text") or "")
-            if is_ok and status_code == 200 and text:
+            if is_ok and status_code == 200:
                 text_base64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
                 result = DocFetchResult(
                     ok=True,
