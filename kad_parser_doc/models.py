@@ -10,11 +10,12 @@ class QueueDocTask(BaseModel):
     job_uuid: str
     doc_id: int
     doc_uuid: str
+    storage_prefix: str
 
 
 class DocFetchResult(BaseModel):
     ok: bool
-    text_base64: Optional[str] = None
+    html: Optional[str] = None
     message: Optional[str] = None
     start_ip: Optional[str] = None
 

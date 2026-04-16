@@ -5,13 +5,13 @@
 ## Что делает сервис
 
 - Читает задачи из обычной YMQ очереди (без FIFO-группировки по делу).
-- Формат одной задачи: `job_uuid`, `doc_id`, `doc_uuid`.
+- Формат одной задачи: `job_uuid`, `doc_id`, `doc_uuid`, `storage_prefix`.
 - Для каждой задачи получает HTML текста через браузерный:
   - `POST /Ras/HtmlDocument/{doc_uuid}`
   - `RecaptchaToken` через `Common.executePravocaptcha`.
 - При успехе отправляет результат в CORE:
   - endpoint: `/api/parse-result/document-text/`
-  - payload: `job_uuid`, `doc_id`, `doc_uuid`, `text_base64`, `start_ip`, `service_id`.
+  - payload: `job_uuid`, `doc_id`, `doc_uuid`, `html_path`, `start_ip`, `service_id`.
 - Сообщение удаляется из очереди только если CORE подтвердил успех (`HTTP ok` и `success=true`).
 - При ошибке парсинга/CORE отправляет error payload в тот же endpoint, но сообщение из очереди не удаляет.
 - Если очередь пуста, браузер закрывается. При появлении новой задачи запускается заново.
@@ -51,7 +51,8 @@ python main.py
 {
   "job_uuid": "0e187...",
   "doc_id": 1,
-  "doc_uuid": "a39..."
+  "doc_uuid": "a39...",
+  "storage_prefix": "jobs/0e187"
 }
 ```
 
@@ -66,7 +67,7 @@ Endpoint: `/api/parse-result/document-text/`
   "job_uuid": "0e187...",
   "doc_id": 1,
   "doc_uuid": "a39...",
-  "text_base64": "PGh0bWw+Li4uPC9odG1sPg==",
+  "html_path": "jobs/0e187/html/a39_2026-03-23-12-30-59.html",
   "start_ip": "203.0.113.10",
   "service_id": 2
 }
@@ -96,6 +97,7 @@ Endpoint: `/api/parse-result/document-text/`
 
 - `ENABLE_YMQ`
 - `YMQ_*`
+- `OBJECT_STORAGE_*`
 - `CORE_API_URL`, `CORE_API_TOKEN`, `SERVICE_ID`
 - `CHECK_IP_ENABLED`, `CHECK_IP_URL`, `CHECK_IP_BEARER`
 - `HEADLESS`, `LOG_LEVEL`, `DEBUG`, `PORT`

@@ -13,6 +13,7 @@ from .core_client import CoreClient
 from .doc_text_service import BrowserManager, DocTextService
 from .logging_utils import log_event
 from .models import QueueDocTask
+from .object_storage import ObjectStorageClient
 
 logger = logging.getLogger("kad-parser-doc.ymq")
 
@@ -23,6 +24,7 @@ class YmqConsumer:
         self.core = CoreClient()
         self.browser = BrowserManager()
         self.doc_service = DocTextService(self.browser)
+        self.object_storage = ObjectStorageClient()
         self._client = boto3.client(
             "sqs",
             endpoint_url=self.cfg.ymq_endpoint_url,
@@ -101,11 +103,19 @@ class YmqConsumer:
                 pass
 
         if fetch_result.ok:
+            html_path = None
+            if fetch_result.html:
+                html_path = await asyncio.to_thread(
+                    self.object_storage.upload_document_html,
+                    task.storage_prefix,
+                    task.doc_uuid,
+                    fetch_result.html,
+                )
             success_payload: dict[str, Any] = {
                 "job_uuid": task.job_uuid,
                 "doc_id": task.doc_id,
                 "doc_uuid": task.doc_uuid,
-                "text_base64": fetch_result.text_base64 or "",
+                "html_path": html_path,
                 "start_ip": fetch_result.start_ip,
                 "service_id": self.cfg.service_id,
             }

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import os
 import threading
 from typing import Optional
@@ -102,10 +101,9 @@ class DocTextService:
             status_code = int(raw.get("status") or 0)
             text = str(raw.get("text") or "")
             if is_ok and status_code == 200:
-                text_base64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
                 result = DocFetchResult(
                     ok=True,
-                    text_base64=text_base64,
+                    html=text,
                     start_ip=start_ip,
                 )
             else:

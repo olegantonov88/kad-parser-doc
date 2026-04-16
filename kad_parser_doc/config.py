@@ -53,6 +53,11 @@ class AppConfig:
     check_ip_enabled: bool
     check_ip_url: str
     check_ip_bearer: str
+    object_storage_endpoint: str
+    object_storage_bucket: str
+    object_storage_access_key_id: str
+    object_storage_secret_access_key: str
+    object_storage_region: str
 
 
 def get_config() -> AppConfig:
@@ -79,5 +84,10 @@ def get_config() -> AppConfig:
         check_ip_enabled=_env_bool("CHECK_IP_ENABLED", False),
         check_ip_url=os.getenv("CHECK_IP_URL", ""),
         check_ip_bearer=os.getenv("CHECK_IP_BEARER", ""),
+        object_storage_endpoint=os.getenv("OBJECT_STORAGE_ENDPOINT", "https://storage.yandexcloud.net"),
+        object_storage_bucket=os.getenv("OBJECT_STORAGE_BUCKET", ""),
+        object_storage_access_key_id=os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID", ""),
+        object_storage_secret_access_key=os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY", ""),
+        object_storage_region=os.getenv("OBJECT_STORAGE_REGION", "ru-central1"),
     )
 
