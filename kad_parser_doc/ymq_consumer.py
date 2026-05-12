@@ -14,12 +14,14 @@ from .doc_text_service import BrowserManager, DocTextService
 from .logging_utils import log_event
 from .models import QueueDocTask
 from .object_storage import ObjectStorageClient
+from .state_manager import StateManager
 
 logger = logging.getLogger("kad-parser-doc.ymq")
 
 
 class YmqConsumer:
-    def __init__(self) -> None:
+    def __init__(self, state_manager: StateManager) -> None:
+        self.state_manager = state_manager
         self.cfg = get_config()
         self.core = CoreClient()
         self.browser = BrowserManager()
@@ -87,73 +89,77 @@ class YmqConsumer:
         if not receipt:
             raise RuntimeError("Message has no ReceiptHandle")
 
-        task = self._parse_body(message.get("Body") or "{}")
-        stop_event = asyncio.Event()
-        extender_task = asyncio.create_task(self._visibility_extender(receipt, stop_event))
         try:
-            fetch_result = await asyncio.to_thread(self.doc_service.fetch_document_text, task)
-        finally:
-            stop_event.set()
-            extender_task.cancel()
+            task = self._parse_body(message.get("Body") or "{}")
+            self.state_manager.set_running(task.job_uuid)
+            stop_event = asyncio.Event()
+            extender_task = asyncio.create_task(self._visibility_extender(receipt, stop_event))
             try:
-                await extender_task
-            except asyncio.CancelledError:
-                pass
-            except Exception:
-                pass
+                fetch_result = await asyncio.to_thread(self.doc_service.fetch_document_text, task)
+            finally:
+                stop_event.set()
+                extender_task.cancel()
+                try:
+                    await extender_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    pass
 
-        if fetch_result.ok:
-            html_path = None
-            if fetch_result.html:
-                html_path = await asyncio.to_thread(
-                    self.object_storage.upload_document_html,
-                    task.storage_prefix,
-                    task.doc_uuid,
-                    fetch_result.html,
-                )
-            success_payload: dict[str, Any] = {
-                "job_uuid": task.job_uuid,
-                "doc_id": task.doc_id,
-                "doc_uuid": task.doc_uuid,
-                "html_path": html_path,
-                "start_ip": fetch_result.start_ip,
-                "service_id": self.cfg.service_id,
-            }
-            notified = self.core.notify_document_text(success_payload, require_success=True)
-            if notified:
-                await self._delete(receipt)
-                log_event(
-                    "ymq_message_deleted",
-                    {
-                        "job_uuid": task.job_uuid,
-                        "doc_id": task.doc_id,
-                        "doc_uuid": task.doc_uuid,
-                        "status": "ok",
-                    },
-                )
+            if fetch_result.ok:
+                html_path = None
+                if fetch_result.html:
+                    html_path = await asyncio.to_thread(
+                        self.object_storage.upload_document_html,
+                        task.storage_prefix,
+                        task.doc_uuid,
+                        fetch_result.html,
+                    )
+                success_payload: dict[str, Any] = {
+                    "job_uuid": task.job_uuid,
+                    "doc_id": task.doc_id,
+                    "doc_uuid": task.doc_uuid,
+                    "html_path": html_path,
+                    "start_ip": fetch_result.start_ip,
+                    "service_id": self.cfg.service_id,
+                }
+                notified = self.core.notify_document_text(success_payload, require_success=True)
+                if notified:
+                    await self._delete(receipt)
+                    log_event(
+                        "ymq_message_deleted",
+                        {
+                            "job_uuid": task.job_uuid,
+                            "doc_id": task.doc_id,
+                            "doc_uuid": task.doc_uuid,
+                            "status": "ok",
+                        },
+                    )
+                    return
+                error_payload = {
+                    "job_uuid": task.job_uuid,
+                    "doc_id": task.doc_id,
+                    "doc_uuid": task.doc_uuid,
+                    "status": "error",
+                    "message": "CORE не подтвердил success=true для document-text",
+                    "start_ip": fetch_result.start_ip,
+                    "service_id": self.cfg.service_id,
+                }
+                self.core.notify_document_text(error_payload, require_success=False)
                 return
+
             error_payload = {
                 "job_uuid": task.job_uuid,
                 "doc_id": task.doc_id,
                 "doc_uuid": task.doc_uuid,
                 "status": "error",
-                "message": "CORE не подтвердил success=true для document-text",
+                "message": fetch_result.message or "Не удалось получить текст документа",
                 "start_ip": fetch_result.start_ip,
                 "service_id": self.cfg.service_id,
             }
             self.core.notify_document_text(error_payload, require_success=False)
-            return
-
-        error_payload = {
-            "job_uuid": task.job_uuid,
-            "doc_id": task.doc_id,
-            "doc_uuid": task.doc_uuid,
-            "status": "error",
-            "message": fetch_result.message or "Не удалось получить текст документа",
-            "start_ip": fetch_result.start_ip,
-            "service_id": self.cfg.service_id,
-        }
-        self.core.notify_document_text(error_payload, require_success=False)
+        finally:
+            self.state_manager.set_stopped()
 
     async def run_forever(self) -> None:
         log_event("consumer_started", {"status": "ok"})

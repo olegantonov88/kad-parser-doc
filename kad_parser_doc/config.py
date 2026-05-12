@@ -58,6 +58,15 @@ class AppConfig:
     object_storage_access_key_id: str
     object_storage_secret_access_key: str
     object_storage_region: str
+    status_bearer_token: Optional[str]
+
+
+def _status_bearer_token_from_env() -> Optional[str]:
+    raw = os.getenv("STATUS_BEARER_TOKEN")
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    return stripped if stripped else None
 
 
 def get_config() -> AppConfig:
@@ -89,5 +98,5 @@ def get_config() -> AppConfig:
         object_storage_access_key_id=os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID", ""),
         object_storage_secret_access_key=os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY", ""),
         object_storage_region=os.getenv("OBJECT_STORAGE_REGION", "ru-central1"),
+        status_bearer_token=_status_bearer_token_from_env(),
     )
-

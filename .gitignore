@@ -9,3 +9,5 @@ logs/
 
 .env
 
+script_state.json
+
