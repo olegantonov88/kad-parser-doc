@@ -17,7 +17,7 @@ def setup_logging() -> None:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
         handlers=[logging.FileHandler(cfg.log_file, encoding="utf-8"), logging.StreamHandler()],
     )
-    for noisy in ("urllib3", "selenium", "botocore", "boto3", "uvicorn.access"):
+    for noisy in ("urllib3", "playwright", "botocore", "boto3", "uvicorn.access"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 

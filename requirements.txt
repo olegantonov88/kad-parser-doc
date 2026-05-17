@@ -1,9 +1,8 @@
 fastapi
 uvicorn
 boto3
-selenium
-selenium-stealth
+playwright
+playwright-stealth
 requests
 python-dotenv
 pydantic
-
