@@ -59,6 +59,7 @@ class AppConfig:
     object_storage_secret_access_key: str
     object_storage_region: str
     status_bearer_token: Optional[str]
+    fp_salt: str
 
 
 def _status_bearer_token_from_env() -> Optional[str]:
@@ -99,4 +100,5 @@ def get_config() -> AppConfig:
         object_storage_secret_access_key=os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY", ""),
         object_storage_region=os.getenv("OBJECT_STORAGE_REGION", "ru-central1"),
         status_bearer_token=_status_bearer_token_from_env(),
+        fp_salt=os.getenv("FP_SALT", ""),
     )

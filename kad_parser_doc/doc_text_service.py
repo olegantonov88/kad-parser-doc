@@ -14,6 +14,9 @@ from .selenium_utils import (
     create_persistent_context,
     fetch_document_html_via_browser,
     get_or_create_page,
+    inject_fp_noise,
+    ip_to_noise,
+    read_pr_fp,
     wait_for_page_ready,
 )
 
@@ -38,6 +41,24 @@ class BrowserManager:
         os.makedirs(path, exist_ok=True)
         return path
 
+    def _fetch_ip(self) -> Optional[str]:
+        """Получает внешний IP перед стартом браузера для сидирования fingerprint."""
+        if not self.cfg.check_ip_url:
+            return None
+        headers: dict[str, str] = {}
+        if self.cfg.check_ip_bearer:
+            headers["Authorization"] = f"Bearer {self.cfg.check_ip_bearer}"
+        try:
+            response = requests.get(self.cfg.check_ip_url, headers=headers, timeout=10)
+            data = response.json() if response.ok else None
+            if isinstance(data, dict):
+                for key in ("ip", "client_ip", "remote_addr"):
+                    if data.get(key):
+                        return str(data[key])
+        except Exception:
+            pass
+        return None
+
     def _ensure_context_in_thread(self) -> None:
         if self._context is not None:
             try:
@@ -52,16 +73,24 @@ class BrowserManager:
                         pass
                     self._pw = None
 
+        ip = self._fetch_ip()
+        noise = ip_to_noise(ip or "", self.cfg.fp_salt)
+
         self._pw, self._context = create_persistent_context(
             headless=self.cfg.headless,
             profile_dir=self._profile_dir(),
         )
+        inject_fp_noise(self._context, noise)
+
         page = get_or_create_page(self._context)
         page.set_default_timeout(60_000)
         apply_stealth(page)
         page.goto(self.cfg.ras_base_url)
         wait_for_page_ready(page, timeout_ms=20_000)
-        log_event("browser_started", {"status": "ok"})
+
+        pr_fp = read_pr_fp(page)
+        log_event("browser_started", {"status": "ok", "ip": ip, "pr_fp": pr_fp})
+        print(f"[browser] IP={ip}  pr_fp={pr_fp}", flush=True)
 
     def _fetch_in_thread(self, doc_uuid: str) -> dict:
         self._ensure_context_in_thread()
